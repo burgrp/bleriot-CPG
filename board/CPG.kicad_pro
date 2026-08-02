@@ -52,8 +52,8 @@
         "zones": {
           "border_display_style": 2,
           "border_hatch_pitch": 0.5,
-          "corner_radius": 2.0,
-          "corner_smoothing": 2,
+          "corner_radius": 0.0,
+          "corner_smoothing": 0,
           "fill_mode": 0,
           "hatch_gap": 1.5,
           "hatch_orientation": 0.0,
@@ -63,7 +63,7 @@
           "min_clearance": 0.508,
           "min_island_area": 10.0,
           "min_thickness": 0.25,
-          "pad_connection": 2,
+          "pad_connection": 1,
           "remove_islands": 0,
           "thermal_relief_gap": 0.5,
           "thermal_relief_spoke_width": 0.5
@@ -76,28 +76,7 @@
           "width": 0.0
         }
       ],
-      "drc_exclusions": [
-        [
-          "courtyards_overlap|131555000|110825000|0e461cd4-1c57-4c81-a3f7-82938464c865|a990baef-5675-4f83-ba75-07c537b83d5e",
-          ""
-        ],
-        [
-          "courtyards_overlap|149555000|110825000|f757384c-b4c6-4fad-8cc0-6b24ad07f60e|fe53d5d1-fa5a-4c53-9525-e8cb4a9c14ca",
-          ""
-        ],
-        [
-          "courtyards_overlap|167555000|110825000|4216c7bb-8005-4c4c-8b78-8489f7267640|4d8887b4-01ec-4753-983e-a42d09ec412b",
-          ""
-        ],
-        [
-          "courtyards_overlap|185555000|110825000|f6477521-d63e-4033-b3a9-3afe89920e38|f6d78867-523c-4864-bc27-aee1e745f5cc",
-          ""
-        ],
-        [
-          "courtyards_overlap|203555000|110825000|510b39d8-8b15-4d78-ac23-8d0d45f5b8cc|cb1ebe07-06d3-4e02-bb7b-9b0b54e72292",
-          ""
-        ]
-      ],
+      "drc_exclusions": [],
       "meta": {
         "filename": "board_design_settings.json",
         "version": 2
@@ -727,7 +706,7 @@
         "uuid": "6b7dd4b9-634f-41b4-b846-9b2e2d6d43c6"
       }
     ],
-    "used_designators": "AE1,R1-103,#PWR1-38,Y1,A1,C1-7,J1-20,#FLG1-2,H1-2,X1,IN1,RV1,D1-21,U1-13",
+    "used_designators": "RV1,AE1,A1,C1-8,D1-21,U1-13,R1-103,#PWR1-38,Y1,J1-20,#FLG1-2,H1-2,X1-2,IN1",
     "variants": []
   },
   "sheets": [
@@ -737,23 +716,15 @@
     ],
     [
       "4584d194-32e7-4df1-9e76-d77234c2571f",
-      "channel1"
+      "valve-cw"
     ],
     [
-      "0a914e37-4875-47ee-b25a-93389f85908a",
-      "channel2"
+      "139d1af4-8327-4029-97b1-929e587f86e1",
+      "valve-ccw"
     ],
     [
-      "a722cb15-efe7-4b81-92fa-686f3c1eb221",
-      "channel3"
-    ],
-    [
-      "59e2697f-8b3a-4f22-a616-1720e4e78241",
-      "channel4"
-    ],
-    [
-      "360d682e-db0f-418a-903b-58d39df8d9b9",
-      "channel5"
+      "6e6eeeb9-52e1-4887-a066-a6cae70d18bf",
+      "pump"
     ]
   ],
   "text_variables": {},
