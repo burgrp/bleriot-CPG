@@ -3,7 +3,7 @@ module github.com/burgrp/bleriot-CPG/fw
 go 1.25.2
 
 require (
-	github.com/burgrp/bleriot/lib v1.2.0
+	github.com/burgrp/bleriot/lib v1.6.0
 	github.com/burgrp/tinygo-drivers/ws2812 v1.0.0
 )
 

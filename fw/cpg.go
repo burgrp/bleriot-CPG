@@ -25,7 +25,6 @@ const (
 )
 
 type Device struct {
-	bleNode            *node.Node
 	led                ws2812.Device
 	control            controlState
 	ledRGB             int32
@@ -41,7 +40,6 @@ func bleriotMain(provisioning node.Provisioning, config spec.Config) {
 	if err != nil {
 		halt("failed to start BleRiot node: " + err.Error())
 	}
-	device.bleNode = bleNode
 
 	for {
 		bleNode.Poll()
@@ -124,16 +122,6 @@ func (device *Device) applyControl(previous controlOutputs) {
 		if err := device.applyLED(current.ledRGB); err != nil {
 			halt("failed to write smart LED: " + err.Error())
 		}
-	}
-
-	if previous.vcw != current.vcw {
-		device.bleNode.Notify(spec.RegValveCW, current.vcw, false)
-	}
-	if previous.vccw != current.vccw {
-		device.bleNode.Notify(spec.RegValveCCW, current.vccw, false)
-	}
-	if previous.pump != current.pump {
-		device.bleNode.Notify(spec.RegPump, current.pump, false)
 	}
 }
 
