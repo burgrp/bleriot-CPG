@@ -60,17 +60,20 @@ report off until the dead time expires and the pending direction is energized.
 Null and unknown writes are ignored, and other boolean values are normalized to
 `1`. The former test-only LED register is retired.
 
-The status LED is automatic:
+While the BleRiot link is online, the status LED is automatic:
 
 | Operating state | LED indication |
 | --- | --- |
-| All outputs off | Dim yellow |
+| All outputs off | Dim white |
 | Pump on, no valve active | Dim green |
-| Valve CW active | Red |
-| Valve CCW active | Blue |
+| Valve CW active | Dim red |
+| Valve CCW active | Dim blue |
 
 Valve state has priority over pump state. During valve dead time, the LED shows
 the pump indication when the pump is on and the idle indication otherwise.
+Before the first valid packet, and after five seconds without a valid packet,
+the link is offline and the LED blinks bright red: 200 ms on and 800 ms off. Link
+loss does not change the commanded pump or valve state.
 
 ## Firmware And Pin Mapping
 
@@ -89,7 +92,7 @@ three-wire SPI.
 
 At startup, firmware preloads PB4-PB6 high before changing them to outputs so
 the active-low optotriac inputs remain off. All three switched outputs start
-off. The status LED starts with the idle indication.
+off. The status LED uses the offline heartbeat until a valid packet is received.
 
 There is no mains zero-cross input. The MOC306x optotriacs shown in the
 schematic are zero-cross devices, so these channels provide on/off switching

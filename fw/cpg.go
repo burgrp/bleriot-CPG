@@ -42,8 +42,9 @@ func bleriotMain(provisioning node.Provisioning, config spec.Config) {
 	}
 
 	for {
-		bleNode.Poll()
+		online, pulse, _ := bleNode.PollWithStatus()
 		device.service(monotonicNanoseconds())
+		device.syncStatusLED(online, pulse)
 	}
 }
 
@@ -63,7 +64,7 @@ func newDevice(valveDeadTimeNanos int64) *Device {
 		led:                ws2812.NewWS2812(pinSmartLED),
 		valveDeadTimeNanos: valveDeadTimeNanos,
 	}
-	if err := device.applyLED(device.control.outputs().ledRGB); err != nil {
+	if err := device.applyLED(0); err != nil {
 		halt("failed to start smart LED: " + err.Error())
 	}
 	return device
@@ -118,10 +119,15 @@ func (device *Device) applyControl(previous controlOutputs) {
 	if previous.pump != current.pump {
 		pinPump.Set(current.pump == 0)
 	}
-	if previous.ledRGB != current.ledRGB {
-		if err := device.applyLED(current.ledRGB); err != nil {
-			halt("failed to write smart LED: " + err.Error())
-		}
+}
+
+func (device *Device) syncStatusLED(online, pulse bool) {
+	value := linkStatusLEDColor(online, pulse, device.control.outputs().ledRGB)
+	if value == device.ledRGB {
+		return
+	}
+	if err := device.applyLED(value); err != nil {
+		halt("failed to write smart LED: " + err.Error())
 	}
 }
 

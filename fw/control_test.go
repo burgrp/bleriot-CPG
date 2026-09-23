@@ -10,8 +10,8 @@ const testDeadTime = int64(100)
 
 func TestStatusLEDPolicy(t *testing.T) {
 	var state controlState
-	if got := state.outputs().ledRGB; got != statusLEDDefaultRGB {
-		t.Fatalf("default LED = %#06x, want %#06x", got, statusLEDDefaultRGB)
+	if got := state.outputs().ledRGB; got != statusLEDOnlineRGB {
+		t.Fatalf("default LED = %#06x, want %#06x", got, statusLEDOnlineRGB)
 	}
 
 	state.command(spec.RegPump, 1, 0, testDeadTime)
@@ -31,6 +31,28 @@ func TestStatusLEDPolicy(t *testing.T) {
 	state.service(110)
 	if got := state.outputs().ledRGB; got != statusLEDValveCCWRGB {
 		t.Fatalf("CCW LED = %#06x, want %#06x", got, statusLEDValveCCWRGB)
+	}
+}
+
+func TestLinkStatusLEDPolicy(t *testing.T) {
+	tests := []struct {
+		name      string
+		online    bool
+		pulse     bool
+		operating int32
+		want      int32
+	}{
+		{name: "online", online: true, operating: statusLEDValveCCWRGB, want: statusLEDValveCCWRGB},
+		{name: "offline pulse", pulse: true, operating: statusLEDPumpRGB, want: statusLEDOfflineRGB},
+		{name: "offline dark", operating: statusLEDPumpRGB, want: 0},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := linkStatusLEDColor(test.online, test.pulse, test.operating); got != test.want {
+				t.Fatalf("LED = %#06x, want %#06x", got, test.want)
+			}
+		})
 	}
 }
 

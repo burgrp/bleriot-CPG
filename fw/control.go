@@ -4,10 +4,11 @@ import "github.com/burgrp/bleriot-CPG/fw/spec"
 
 const (
 	defaultValveDeadTimeMilliseconds = 100
-	statusLEDDefaultRGB              = 0x100c00
-	statusLEDPumpRGB                 = 0x001000
-	statusLEDValveCWRGB              = 0xff0000
-	statusLEDValveCCWRGB             = 0x0000ff
+	statusLEDOnlineRGB               = 0x101010
+	statusLEDPumpRGB                 = 0x104010
+	statusLEDValveCWRGB              = 0x401010
+	statusLEDValveCCWRGB             = 0x101040
+	statusLEDOfflineRGB              = 0xff0000
 )
 
 type valveDirection uint8
@@ -37,6 +38,16 @@ func normalizeConfig(config spec.Config) spec.Config {
 		config.ValveDeadTimeMilliseconds = defaultValveDeadTimeMilliseconds
 	}
 	return config
+}
+
+func linkStatusLEDColor(online, pulse bool, operatingRGB int32) int32 {
+	if online {
+		return operatingRGB
+	}
+	if pulse {
+		return statusLEDOfflineRGB
+	}
+	return 0
 }
 
 func (state *controlState) read(tag uint16) (value int32, null bool) {
@@ -114,7 +125,7 @@ func (state *controlState) outputs() controlOutputs {
 		if state.pump != 0 {
 			outputs.ledRGB = statusLEDPumpRGB
 		} else {
-			outputs.ledRGB = statusLEDDefaultRGB
+			outputs.ledRGB = statusLEDOnlineRGB
 		}
 	}
 	return outputs
