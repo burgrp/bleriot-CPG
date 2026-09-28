@@ -102,8 +102,11 @@ only.
 
 - [`board/`](board/) contains the KiCad schematic, PCB, BOM, and fabrication
   outputs.
-- [`fw/`](fw/) contains the TinyGo BleRiot node firmware and host-side inventory
-  tool.
+- [`fw/`](fw/) contains the importable `cpg` TinyGo firmware and board-owned
+  build profile.
+- [`fw/spec/`](fw/spec/) contains the configuration, register contract, chip,
+  and firmware manifest.
+- [`fw/cmd/dev/`](fw/cmd/dev/) contains the local inventory and BleRiot CLI.
 - [`burgrp/tinygo-drivers/ws2812`](https://github.com/burgrp/tinygo-drivers/tree/main/ws2812)
   contains the reusable 24 MHz PY32 WS2812 driver.
 - [`sub/hw-kicad/`](sub/hw-kicad/) is the shared KiCad library submodule.
@@ -122,18 +125,22 @@ project, GNU Arm Embedded binutils, and pyOCD with the Puya device pack.
 ```bash
 cd fw
 go test ./...
-go run . make cpg build
+go run ./cmd/dev node gen --name cpg
+go run ./cmd/dev node build --name cpg --disassembly
 ```
 
-The BleRiot build command generates the node entrypoint with its configured RF
-identity and produces `fw/image.elf` for `py32f030x8`.
+BleRiot generates a private entry point under `.bleriot/firmware/cpg` and calls
+`cpg.Run` with the configured identity and `spec.Config`. The firmware profile
+selects `py32f030x8`, scheduler-none, leaking GC, RTT serial, and a 100 kHz pyOCD
+connection.
 
 The first board was programmed through a WCH-Link at 100 kHz using an
 under-reset connection. With the board connected:
 
 ```bash
 cd fw
-go run . make cpg flash
+go run ./cmd/dev node install-pack --name cpg
+go run ./cmd/dev node build --name cpg --flash --rtt
 ```
 
 Confirm the fitted MCU density before relying on the `py32f030x8` target. Check

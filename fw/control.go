@@ -1,4 +1,4 @@
-package main
+package cpg
 
 import "github.com/burgrp/bleriot-CPG/fw/spec"
 

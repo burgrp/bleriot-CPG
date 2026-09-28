@@ -1,4 +1,4 @@
-package main
+package cpg
 
 func normalizeBool(value int32) int32 {
 	if value == 0 {

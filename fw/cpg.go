@@ -1,6 +1,6 @@
 //go:build tinygo
 
-package main
+package cpg
 
 import (
 	"machine"
@@ -32,7 +32,8 @@ type Device struct {
 	valveDeadTimeNanos int64
 }
 
-func bleriotMain(provisioning node.Provisioning, config spec.Config) {
+// Run starts the CPG firmware with baked provisioning and configuration.
+func Run(provisioning node.Provisioning, config spec.Config) {
 	config = normalizeConfig(config)
 	device := newDevice(int64(config.ValveDeadTimeMilliseconds) * int64(time.Millisecond))
 

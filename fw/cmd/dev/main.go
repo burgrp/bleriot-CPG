@@ -1,5 +1,4 @@
-//go:build !tinygo
-
+// Command dev is the local CPG inventory and BleRiot CLI.
 package main
 
 import (
@@ -20,7 +19,7 @@ func main() {
 			Channel: far,
 			Type:    spec.Type(),
 			Config: spec.Config{
-				ValveDeadTimeMilliseconds: defaultValveDeadTimeMilliseconds,
+				ValveDeadTimeMilliseconds: 100,
 			},
 		},
 	})

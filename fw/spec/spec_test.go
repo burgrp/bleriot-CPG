@@ -1,10 +1,27 @@
 package spec
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/burgrp/bleriot/lib/shared/firmware"
+)
 
 func TestTypeValidates(t *testing.T) {
 	if err := Type().Validate(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestFirmwareProfile(t *testing.T) {
+	profile := Type().Firmware
+	if profile.Package != "github.com/burgrp/bleriot-CPG/fw" {
+		t.Fatalf("firmware package = %q", profile.Package)
+	}
+	if profile.TinyGo.Scheduler != firmware.SchedulerNone || profile.TinyGo.StackSizeBytes != 0 {
+		t.Fatalf("TinyGo profile = %+v", profile.TinyGo)
+	}
+	if profile.PyOCD.FrequencyHz != 100_000 || profile.PyOCD.LoadMode != firmware.ConnectUnderReset || profile.PyOCD.RTTMode != firmware.ConnectAttach || profile.PyOCD.GDBMode != firmware.ConnectAttach {
+		t.Fatalf("pyOCD profile = %+v", profile.PyOCD)
 	}
 }
 
