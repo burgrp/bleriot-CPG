@@ -8,6 +8,28 @@ import (
 
 const testDeadTime = int64(100)
 
+func TestStatusLEDPalette(t *testing.T) {
+	tests := []struct {
+		name  string
+		value int32
+		want  int32
+	}{
+		{name: "online idle", value: statusLEDOnlineRGB, want: 0xA05000},
+		{name: "offline", value: statusLEDOfflineRGB, want: 0xFF3000},
+		{name: "pump", value: statusLEDPumpRGB, want: 0x00FF10},
+		{name: "valve CW", value: statusLEDValveCWRGB, want: 0xFF000A},
+		{name: "valve CCW", value: statusLEDValveCCWRGB, want: 0x0020FF},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.value != test.want {
+				t.Fatalf("LED color = %#06x, want %#06x", test.value, test.want)
+			}
+		})
+	}
+}
+
 func TestStatusLEDPolicy(t *testing.T) {
 	var state controlState
 	if got := state.outputs().ledRGB; got != statusLEDOnlineRGB {

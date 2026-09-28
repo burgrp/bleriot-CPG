@@ -64,16 +64,16 @@ While the BleRiot link is online, the status LED is automatic:
 
 | Operating state | LED indication |
 | --- | --- |
-| All outputs off | Dim white |
-| Pump on, no valve active | Dim green |
-| Valve CW active | Dim red |
-| Valve CCW active | Dim blue |
+| All outputs off | Amber (`0xa05000`) |
+| Pump on, no valve active | Green (`0x00ff10`) |
+| Valve CW active | Red (`0xff000a`) |
+| Valve CCW active | Blue (`0x0020ff`) |
 
 Valve state has priority over pump state. During valve dead time, the LED shows
 the pump indication when the pump is on and the idle indication otherwise.
 Before the first valid packet, and after five seconds without a valid packet,
-the link is offline and the LED blinks bright red: 200 ms on and 800 ms off. Link
-loss does not change the commanded pump or valve state.
+the link is offline and the LED blinks red-orange (`0xff3000`): 200 ms on and
+800 ms off. Link loss does not change the commanded pump or valve state.
 
 ## Firmware And Pin Mapping
 
@@ -157,7 +157,6 @@ The current firmware has been built, flashed, and exercised on the board:
 - The valve interlock and latest-command state machine are covered by host
   tests.
 - The WS2812 waveform and all RGB channels were validated at 3.3 V.
-- The idle color was visually calibrated to dim yellow.
 
 End-to-end testing with the intended pump, valve actuator, heating controller,
 and RF hub is still required for each installation.

@@ -4,11 +4,11 @@ import "github.com/burgrp/bleriot-CPG/fw/spec"
 
 const (
 	defaultValveDeadTimeMilliseconds = 100
-	statusLEDOnlineRGB               = 0x101010
-	statusLEDPumpRGB                 = 0x104010
-	statusLEDValveCWRGB              = 0x401010
-	statusLEDValveCCWRGB             = 0x101040
-	statusLEDOfflineRGB              = 0xff0000
+	statusLEDOnlineRGB               = 0xA05000
+	statusLEDOfflineRGB              = 0xFF3000
+	statusLEDPumpRGB                 = 0x00FF10
+	statusLEDValveCWRGB              = 0xFF000A
+	statusLEDValveCCWRGB             = 0x0020FF
 )
 
 type valveDirection uint8
