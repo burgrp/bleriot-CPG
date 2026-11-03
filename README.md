@@ -20,6 +20,7 @@ on/off outputs; they are not phase-angle dimmers.
   command received during the delay wins.
 - PAN2110 sub-GHz radio running the BleRiot register protocol.
 - WS2812 status LED for local state indication.
+- 30-second communication watchdog with a configurable safe valve position.
 - Onboard PY32F030 microcontroller and mains-to-3.3 V power module.
 
 This arrangement supports common motorized mixing and diverting valves whose
@@ -71,9 +72,16 @@ While the BleRiot link is online, the status LED is automatic:
 
 Valve state has priority over pump state. During valve dead time, the LED shows
 the pump indication when the pump is on and the idle indication otherwise.
-Before the first valid packet, and after five seconds without a valid packet,
-the link is offline and the LED blinks red-orange (`0xff3000`): 200 ms on and
-800 ms off. Link loss does not change the commanded pump or valve state.
+Before the first valid packet, and after 30 seconds without a valid packet, the
+link is offline and the LED blinks blue (`0x0020ff`): 200 ms on and 800 ms off.
+
+When an online link times out, the communication watchdog switches the pump off
+and commands the valve to its configured safe end. Valve reversal still uses
+the 100 ms break-before-make delay. `WatchdogSafePositionCCW` in
+[`fw/cmd/dev/main.go`](fw/cmd/dev/main.go) selects the safe end: `false` selects
+CW and `true` selects CCW. The current baked configuration selects CW. The
+watchdog acts only after a previously online link expires; startup remains
+all-off until the node first receives a valid packet.
 
 ## Firmware And Pin Mapping
 
@@ -179,8 +187,10 @@ Before deployment, independently verify at least:
 - Pump and valve actuator voltage, current, wiring, and duty-cycle limits.
 - Required valve reversal delay and behavior after RF or controller loss.
 
-Outputs retain their commanded state until another command or reset. Define
-radio-loss behavior and maximum pump and valve run times for the installation.
+After communication watchdog expiry, the pump switches off and the configured
+valve direction remains energized. Confirm that the actuator has suitable
+internal end-limit switching, and define maximum pump and valve run times for
+the installation.
 
 Do not connect a pump, valve, or mains supply based only on the connector table;
 verify the assembled board against the schematic, PCB, and the equipment

@@ -8,6 +8,7 @@ import (
 
 type Config struct {
 	ValveDeadTimeMilliseconds uint32
+	WatchdogSafePositionCCW   bool
 }
 
 const (

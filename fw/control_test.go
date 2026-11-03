@@ -15,7 +15,7 @@ func TestStatusLEDPalette(t *testing.T) {
 		want  int32
 	}{
 		{name: "online idle", value: statusLEDOnlineRGB, want: 0xA05000},
-		{name: "offline", value: statusLEDOfflineRGB, want: 0xFF3000},
+		{name: "offline", value: statusLEDOfflineRGB, want: 0x0020FF},
 		{name: "pump", value: statusLEDPumpRGB, want: 0x00FF10},
 		{name: "valve CW", value: statusLEDValveCWRGB, want: 0xFF000A},
 		{name: "valve CCW", value: statusLEDValveCCWRGB, want: 0x0020FF},
@@ -27,6 +27,70 @@ func TestStatusLEDPalette(t *testing.T) {
 				t.Fatalf("LED color = %#06x, want %#06x", test.value, test.want)
 			}
 		})
+	}
+}
+
+func TestLinkStateReportsWatchdogExpiryOnlyOnOnlineToOfflineTransition(t *testing.T) {
+	var state linkState
+	for index, test := range []struct {
+		online bool
+		want   bool
+	}{
+		{online: false, want: false},
+		{online: true, want: false},
+		{online: true, want: false},
+		{online: false, want: true},
+		{online: false, want: false},
+		{online: true, want: false},
+		{online: false, want: true},
+	} {
+		if got := state.update(test.online); got != test.want {
+			t.Errorf("update %d expiry = %v, want %v", index, got, test.want)
+		}
+	}
+}
+
+func TestWatchdogStopsPumpAndMovesValveToConfiguredSafePosition(t *testing.T) {
+	for _, test := range []struct {
+		name            string
+		safePositionCCW bool
+		activeTag       uint16
+		wantCW          int32
+		wantCCW         int32
+	}{
+		{name: "CW", activeTag: spec.RegValveCCW, wantCW: 1},
+		{name: "CCW", safePositionCCW: true, activeTag: spec.RegValveCW, wantCCW: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var state controlState
+			state.command(spec.RegPump, 1, 0, testDeadTime)
+			state.command(test.activeTag, 1, 0, testDeadTime)
+
+			state.applyWatchdog(test.safePositionCCW, 10, testDeadTime)
+			if outputs := state.outputs(); outputs.pump != 0 || outputs.vcw != 0 || outputs.vccw != 0 {
+				t.Fatalf("during watchdog reversal outputs = pump %d, CW %d, CCW %d; want all off", outputs.pump, outputs.vcw, outputs.vccw)
+			}
+			state.service(109)
+			if outputs := state.outputs(); outputs.vcw != 0 || outputs.vccw != 0 {
+				t.Fatalf("before deadline outputs = CW %d, CCW %d; want both off", outputs.vcw, outputs.vccw)
+			}
+			state.service(110)
+			if outputs := state.outputs(); outputs.pump != 0 || outputs.vcw != test.wantCW || outputs.vccw != test.wantCCW {
+				t.Fatalf("safe outputs = pump %d, CW %d, CCW %d; want 0/%d/%d", outputs.pump, outputs.vcw, outputs.vccw, test.wantCW, test.wantCCW)
+			}
+		})
+	}
+}
+
+func TestWatchdogSafePositionReplacesPendingValveCommand(t *testing.T) {
+	var state controlState
+	state.command(spec.RegValveCW, 1, 0, testDeadTime)
+	state.command(spec.RegValveCCW, 1, 10, testDeadTime)
+
+	state.applyWatchdog(false, 50, testDeadTime)
+	state.service(110)
+	if outputs := state.outputs(); outputs.vcw != 1 || outputs.vccw != 0 {
+		t.Fatalf("safe outputs = CW %d, CCW %d; want watchdog CW command", outputs.vcw, outputs.vccw)
 	}
 }
 

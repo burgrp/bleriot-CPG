@@ -30,21 +30,30 @@ type Device struct {
 	ledRGB             int32
 	ledBytes           [3]byte
 	valveDeadTimeNanos int64
+	watchdogSafeCCW    bool
 }
 
 // Run starts the CPG firmware with baked provisioning and configuration.
 func Run(provisioning node.Provisioning, config spec.Config) {
 	config = normalizeConfig(config)
-	device := newDevice(int64(config.ValveDeadTimeMilliseconds) * int64(time.Millisecond))
+	device := newDevice(
+		int64(config.ValveDeadTimeMilliseconds)*int64(time.Millisecond),
+		config.WatchdogSafePositionCCW,
+	)
 
 	bleNode, err := pan211x.StartNode(provisioning, pinSpiSck, pinSpiData, pinSpiCsn, device)
 	if err != nil {
 		halt("failed to start BleRiot node: " + err.Error())
 	}
 
+	var link linkState
 	for {
 		online, pulse, _ := bleNode.PollWithStatus()
-		device.service(monotonicNanoseconds())
+		now := monotonicNanoseconds()
+		if link.update(online) {
+			device.applyWatchdog(now)
+		}
+		device.service(now)
 		device.syncStatusLED(online, pulse)
 	}
 }
@@ -52,7 +61,7 @@ func Run(provisioning node.Provisioning, config spec.Config) {
 //go:linkname monotonicNanoseconds runtime.nanotime
 func monotonicNanoseconds() int64
 
-func newDevice(valveDeadTimeNanos int64) *Device {
+func newDevice(valveDeadTimeNanos int64, watchdogSafeCCW bool) *Device {
 	configureActiveLowOutput(pinPump)
 	configureActiveLowOutput(pinValveCCW)
 	configureActiveLowOutput(pinValveCW)
@@ -64,6 +73,7 @@ func newDevice(valveDeadTimeNanos int64) *Device {
 	device := &Device{
 		led:                ws2812.NewWS2812(pinSmartLED),
 		valveDeadTimeNanos: valveDeadTimeNanos,
+		watchdogSafeCCW:    watchdogSafeCCW,
 	}
 	if err := device.applyLED(0); err != nil {
 		halt("failed to start smart LED: " + err.Error())
@@ -94,6 +104,12 @@ func (device *Device) Write(tag uint16, value int32, null bool) {
 func (device *Device) service(now int64) {
 	previous := device.control.outputs()
 	device.control.service(now)
+	device.applyControl(previous)
+}
+
+func (device *Device) applyWatchdog(now int64) {
+	previous := device.control.outputs()
+	device.control.applyWatchdog(device.watchdogSafeCCW, now, device.valveDeadTimeNanos)
 	device.applyControl(previous)
 }
 

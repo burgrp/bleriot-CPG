@@ -5,11 +5,21 @@ import "github.com/burgrp/bleriot-CPG/fw/spec"
 const (
 	defaultValveDeadTimeMilliseconds = 100
 	statusLEDOnlineRGB               = 0xA05000
-	statusLEDOfflineRGB              = 0xFF3000
+	statusLEDOfflineRGB              = 0x0020FF
 	statusLEDPumpRGB                 = 0x00FF10
 	statusLEDValveCWRGB              = 0xFF000A
 	statusLEDValveCCWRGB             = 0x0020FF
 )
+
+type linkState struct {
+	online bool
+}
+
+func (state *linkState) update(online bool) (watchdogExpired bool) {
+	watchdogExpired = state.online && !online
+	state.online = online
+	return watchdogExpired
+}
 
 type valveDirection uint8
 
@@ -74,6 +84,15 @@ func (state *controlState) command(tag uint16, value int32, now, deadTime int64)
 	case spec.RegPump:
 		state.pump = value
 	}
+}
+
+func (state *controlState) applyWatchdog(safePositionCCW bool, now, deadTime int64) {
+	state.command(spec.RegPump, 0, now, deadTime)
+	if safePositionCCW {
+		state.command(spec.RegValveCCW, 1, now, deadTime)
+		return
+	}
+	state.command(spec.RegValveCW, 1, now, deadTime)
 }
 
 func (state *controlState) commandValve(direction valveDirection, value int32, now, deadTime int64) {
