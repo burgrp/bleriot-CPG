@@ -30,7 +30,7 @@ func TestStatusLEDPalette(t *testing.T) {
 	}
 }
 
-func TestLinkStateReportsWatchdogExpiryOnlyOnOnlineToOfflineTransition(t *testing.T) {
+func TestLinkStateReportsOnlyOnlineToOfflineTransition(t *testing.T) {
 	var state linkState
 	for index, test := range []struct {
 		online bool
@@ -47,6 +47,114 @@ func TestLinkStateReportsWatchdogExpiryOnlyOnOnlineToOfflineTransition(t *testin
 		if got := state.update(test.online); got != test.want {
 			t.Errorf("update %d expiry = %v, want %v", index, got, test.want)
 		}
+	}
+}
+
+func TestWatchdogLeaseClampsAndRoundsRemainingUp(t *testing.T) {
+	const now = int64(12_345)
+	var lease watchdogLease
+	if armed := lease.set(spec.WatchdogMaxSeconds+1, false, now); !armed {
+		t.Fatal("positive watchdog write did not arm lease")
+	}
+
+	for _, test := range []struct {
+		name string
+		now  int64
+		want int32
+	}{
+		{name: "at set", now: now, want: 60},
+		{name: "fractional first second", now: now + 1, want: 60},
+		{name: "one second elapsed", now: now + nanosecondsPerSecond, want: 59},
+		{name: "fractional final second", now: now + 59*nanosecondsPerSecond + 1, want: 1},
+		{name: "at deadline", now: now + 60*nanosecondsPerSecond, want: 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := lease.remaining(test.now); got != test.want {
+				t.Errorf("remaining(%d) = %d, want %d", test.now, got, test.want)
+			}
+		})
+	}
+}
+
+func TestWatchdogRegisterSafetyLifecycle(t *testing.T) {
+	const now = int64(1_000)
+	state := newControl(false, testDeadTime)
+
+	state.writeAt(spec.RegPump, 1, false, now)
+	if outputs := state.outputs(); outputs.pump != 0 {
+		t.Fatalf("pump write while expired = %d, want 0", outputs.pump)
+	}
+	if got, null := state.readAt(spec.RegWatchdog, now); got != 0 || null {
+		t.Fatalf("initial watchdog read = (%d, %v), want (0, false)", got, null)
+	}
+
+	state.writeAt(spec.RegWatchdog, 2, false, now)
+	state.writeAt(spec.RegPump, 1, false, now)
+	state.writeAt(spec.RegValveCCW, 1, false, now)
+	if got, null := state.readAt(spec.RegWatchdog, now+nanosecondsPerSecond+1); got != 1 || null {
+		t.Fatalf("counted-down watchdog read = (%d, %v), want (1, false)", got, null)
+	}
+
+	deadline := now + 2*nanosecondsPerSecond
+	if got, null := state.readAt(spec.RegWatchdog, deadline); got != 0 || null {
+		t.Fatalf("expired watchdog read = (%d, %v), want (0, false)", got, null)
+	}
+	if outputs := state.outputs(); outputs.pump != 0 || outputs.vcw != 0 || outputs.vccw != 0 {
+		t.Fatalf("expiry reversal outputs = pump %d, CW %d, CCW %d; want all off", outputs.pump, outputs.vcw, outputs.vccw)
+	}
+	state.serviceAt(deadline + testDeadTime)
+	if outputs := state.outputs(); outputs.vcw != 1 || outputs.vccw != 0 {
+		t.Fatalf("safe outputs = CW %d, CCW %d; want CW safe end", outputs.vcw, outputs.vccw)
+	}
+
+	state.writeAt(spec.RegValveCCW, 1, false, deadline+testDeadTime+1)
+	if outputs := state.outputs(); outputs.vcw != 1 || outputs.vccw != 0 {
+		t.Fatalf("write while expired changed safe outputs to CW %d, CCW %d", outputs.vcw, outputs.vccw)
+	}
+	state.writeAt(spec.RegWatchdog, 5, false, deadline+testDeadTime+1)
+	if outputs := state.outputs(); outputs.vcw != 1 || outputs.vccw != 0 {
+		t.Fatalf("re-arm changed safe outputs to CW %d, CCW %d", outputs.vcw, outputs.vccw)
+	}
+	state.writeAt(spec.RegPump, 1, false, deadline+testDeadTime+1)
+	if outputs := state.outputs(); outputs.pump != 1 {
+		t.Fatalf("fresh pump write after re-arm = %d, want 1", outputs.pump)
+	}
+	state.writeAt(spec.RegWatchdog, 0, false, deadline+testDeadTime+2)
+	if outputs := state.outputs(); outputs.pump != 0 || outputs.vcw != 1 || outputs.vccw != 0 {
+		t.Fatalf("zero watchdog outputs = pump %d, CW %d, CCW %d; want 0/1/0", outputs.pump, outputs.vcw, outputs.vccw)
+	}
+}
+
+func TestWatchdogNegativeAndNullWritesExpire(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		value int32
+		null  bool
+	}{
+		{name: "negative", value: -1},
+		{name: "null", value: 30, null: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			state := newControl(true, testDeadTime)
+			state.writeAt(spec.RegWatchdog, 30, false, 0)
+			state.writeAt(spec.RegPump, 1, false, 0)
+			state.writeAt(spec.RegWatchdog, test.value, test.null, 1)
+			if outputs := state.outputs(); outputs.pump != 0 || outputs.vccw != 1 {
+				t.Fatalf("expiry outputs = pump %d, CCW %d; want 0/1", outputs.pump, outputs.vccw)
+			}
+		})
+	}
+}
+
+func TestWatchdogControlDoesNotAllocate(t *testing.T) {
+	state := newControl(false, testDeadTime)
+	state.writeAt(spec.RegWatchdog, spec.WatchdogMaxSeconds, false, 0)
+
+	if allocs := testing.AllocsPerRun(1000, func() {
+		state.writeAt(spec.RegPump, 1, false, 1)
+		state.readAt(spec.RegWatchdog, 1)
+	}); allocs != 0 {
+		t.Fatalf("steady-state watchdog operations allocated %v times, want 0", allocs)
 	}
 }
 
@@ -122,20 +230,23 @@ func TestStatusLEDPolicy(t *testing.T) {
 
 func TestLinkStatusLEDPolicy(t *testing.T) {
 	tests := []struct {
-		name      string
-		online    bool
-		pulse     bool
-		operating int32
-		want      int32
+		name            string
+		online          bool
+		pulse           bool
+		watchdogExpired bool
+		operating       int32
+		want            int32
 	}{
 		{name: "online", online: true, operating: statusLEDValveCCWRGB, want: statusLEDValveCCWRGB},
 		{name: "offline pulse", pulse: true, operating: statusLEDPumpRGB, want: statusLEDOfflineRGB},
 		{name: "offline dark", operating: statusLEDPumpRGB, want: 0},
+		{name: "watchdog pulse", online: true, pulse: true, watchdogExpired: true, operating: statusLEDPumpRGB, want: statusLEDOfflineRGB},
+		{name: "watchdog dark", online: true, watchdogExpired: true, operating: statusLEDPumpRGB, want: 0},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := linkStatusLEDColor(test.online, test.pulse, test.operating); got != test.want {
+			if got := statusLEDColor(test.online, test.pulse, test.watchdogExpired, test.operating); got != test.want {
 				t.Fatalf("LED = %#06x, want %#06x", got, test.want)
 			}
 		})

@@ -15,6 +15,9 @@ const (
 	RegValveCW  = 1
 	RegValveCCW = 2
 	RegPump     = 3
+	RegWatchdog = 5
+
+	WatchdogMaxSeconds int32 = 60
 )
 
 var Chip = puya.PY32F030x8
@@ -43,6 +46,16 @@ func Type() inventory.DeviceType {
 			{Tag: RegValveCW, Name: "vcw", Type: inventory.TypeBool},
 			{Tag: RegValveCCW, Name: "vccw", Type: inventory.TypeBool},
 			{Tag: RegPump, Name: "pump", Type: inventory.TypeBool},
+			{
+				Tag:  RegWatchdog,
+				Name: "watchdog",
+				Type: inventory.TypeInt,
+				Metadata: map[string]string{
+					"min":  "0",
+					"max":  "60",
+					"unit": "seconds",
+				},
+			},
 		},
 	}
 }

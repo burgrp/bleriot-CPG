@@ -25,12 +25,10 @@ const (
 )
 
 type Device struct {
-	led                ws2812.Device
-	control            controlState
-	ledRGB             int32
-	ledBytes           [3]byte
-	valveDeadTimeNanos int64
-	watchdogSafeCCW    bool
+	led      ws2812.Device
+	control  controlState
+	ledRGB   int32
+	ledBytes [3]byte
 }
 
 // Run starts the CPG firmware with baked provisioning and configuration.
@@ -54,7 +52,7 @@ func Run(provisioning node.Provisioning, config spec.Config) {
 			device.applyWatchdog(now)
 		}
 		device.service(now)
-		device.syncStatusLED(online, pulse)
+		device.syncStatusLED(online, pulse, now)
 	}
 }
 
@@ -71,9 +69,8 @@ func newDevice(valveDeadTimeNanos int64, watchdogSafeCCW bool) *Device {
 	pinSmartLED.Configure(machine.PinConfig{Mode: machine.PinOutput})
 
 	device := &Device{
-		led:                ws2812.NewWS2812(pinSmartLED),
-		valveDeadTimeNanos: valveDeadTimeNanos,
-		watchdogSafeCCW:    watchdogSafeCCW,
+		led:     ws2812.NewWS2812(pinSmartLED),
+		control: newControl(watchdogSafeCCW, valveDeadTimeNanos),
 	}
 	if err := device.applyLED(0); err != nil {
 		halt("failed to start smart LED: " + err.Error())
@@ -88,28 +85,27 @@ func configureActiveLowOutput(pin machine.Pin) {
 }
 
 func (device *Device) Read(tag uint16) (value int32, null bool) {
-	return device.control.read(tag)
+	previous := device.control.outputs()
+	value, null = device.control.readAt(tag, monotonicNanoseconds())
+	device.applyControl(previous)
+	return value, null
 }
 
 func (device *Device) Write(tag uint16, value int32, null bool) {
-	if null {
-		return
-	}
-
 	previous := device.control.outputs()
-	device.control.command(tag, value, monotonicNanoseconds(), device.valveDeadTimeNanos)
+	device.control.writeAt(tag, value, null, monotonicNanoseconds())
 	device.applyControl(previous)
 }
 
 func (device *Device) service(now int64) {
 	previous := device.control.outputs()
-	device.control.service(now)
+	device.control.serviceAt(now)
 	device.applyControl(previous)
 }
 
 func (device *Device) applyWatchdog(now int64) {
 	previous := device.control.outputs()
-	device.control.applyWatchdog(device.watchdogSafeCCW, now, device.valveDeadTimeNanos)
+	device.control.forceSafe(now)
 	device.applyControl(previous)
 }
 
@@ -138,8 +134,8 @@ func (device *Device) applyControl(previous controlOutputs) {
 	}
 }
 
-func (device *Device) syncStatusLED(online, pulse bool) {
-	value := linkStatusLEDColor(online, pulse, device.control.outputs().ledRGB)
+func (device *Device) syncStatusLED(online, pulse bool, now int64) {
+	value := statusLEDColor(online, pulse, device.control.watchdogExpired(now), device.control.outputs().ledRGB)
 	if value == device.ledRGB {
 		return
 	}

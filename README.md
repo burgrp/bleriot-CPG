@@ -20,7 +20,8 @@ on/off outputs; they are not phase-angle dimmers.
   command received during the delay wins.
 - PAN2110 sub-GHz radio running the BleRiot register protocol.
 - WS2812 status LED for local state indication.
-- 30-second communication watchdog with a configurable safe valve position.
+- Explicit watchdog lease with a configurable safe valve position.
+- 30-second RF link-loss fail-safe.
 - Onboard PY32F030 microcontroller and mains-to-3.3 V power module.
 
 This arrangement supports common motorized mixing and diverting valves whose
@@ -55,13 +56,21 @@ controller.
 | 1 | `vcw` | bool | Valve clockwise output |
 | 2 | `vccw` | bool | Valve counter-clockwise output |
 | 3 | `pump` | bool | Circulation pump output |
+| 5 | `watchdog` | int | Safety lease remaining time in seconds |
 
 A value of `0` is off and `1` is on. During valve reversal both valve registers
 report off until the dead time expires and the pending direction is energized.
 Null and unknown writes are ignored, and other boolean values are normalized to
 `1`. The former test-only LED register is retired.
 
-While the BleRiot link is online, the status LED is automatic:
+The watchdog starts expired. Positive writes arm it for up to 60 seconds, and
+reads return the remaining whole seconds rounded up. Zero, negative, and NULL
+writes expire it immediately. While expired, pump and valve writes are ignored.
+Re-arming does not restore prior commands; the controller must send fresh output
+writes.
+
+While the BleRiot link is online and the watchdog is armed, the status LED is
+automatic:
 
 | Operating state | LED indication |
 | --- | --- |
@@ -72,16 +81,20 @@ While the BleRiot link is online, the status LED is automatic:
 
 Valve state has priority over pump state. During valve dead time, the LED shows
 the pump indication when the pump is on and the idle indication otherwise.
-Before the first valid packet, and after 30 seconds without a valid packet, the
-link is offline and the LED blinks blue (`0x0020ff`): 200 ms on and 800 ms off.
+An expired watchdog blinks blue (`0x0020ff`): 200 ms on and 800 ms off. RF
+offline indication uses the same blue heartbeat.
 
-When an online link times out, the communication watchdog switches the pump off
-and commands the valve to its configured safe end. Valve reversal still uses
-the 100 ms break-before-make delay. `WatchdogSafePositionCCW` in
+When the watchdog expires, firmware switches the pump off and commands the
+valve to its configured safe end. Valve reversal still uses the configured
+break-before-make delay. `WatchdogSafePositionCCW` in
 [`fw/cmd/dev/main.go`](fw/cmd/dev/main.go) selects the safe end: `false` selects
 CW and `true` selects CCW. The current baked configuration selects CW. The
-watchdog acts only after a previously online link expires; startup remains
-all-off until the node first receives a valid packet.
+safe direction remains energized for actuators with internal end-limit
+switching.
+
+Independently, 30 seconds without a valid RF packet marks the link offline and
+applies the same safe state once. Startup remains all-off until the explicit
+watchdog is armed; output writes are ignored before then.
 
 ## Firmware And Pin Mapping
 
@@ -187,7 +200,7 @@ Before deployment, independently verify at least:
 - Pump and valve actuator voltage, current, wiring, and duty-cycle limits.
 - Required valve reversal delay and behavior after RF or controller loss.
 
-After communication watchdog expiry, the pump switches off and the configured
+After watchdog or RF timeout expiry, the pump switches off and the configured
 valve direction remains energized. Confirm that the actuator has suitable
 internal end-limit switching, and define maximum pump and valve run times for
 the installation.
