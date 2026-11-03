@@ -6,7 +6,8 @@ const (
 	defaultValveDeadTimeMilliseconds = 100
 	nanosecondsPerSecond             = int64(1_000_000_000)
 	statusLEDOnlineRGB               = 0xA05000
-	statusLEDOfflineRGB              = 0x0020FF
+	statusLEDOfflineRGB              = 0xFF3000
+	statusLEDWatchdogRGB             = 0x0000FF
 	statusLEDPumpRGB                 = 0x00FF10
 	statusLEDValveCWRGB              = 0xFF000A
 	statusLEDValveCCWRGB             = 0x0020FF
@@ -59,9 +60,15 @@ func newControl(safeCCW bool, deadTime int64) controlState {
 }
 
 func statusLEDColor(online, pulse, watchdogExpired bool, operatingRGB int32) int32 {
-	if !online || watchdogExpired {
+	if !online {
 		if pulse {
 			return statusLEDOfflineRGB
+		}
+		return 0
+	}
+	if watchdogExpired {
+		if pulse {
+			return statusLEDWatchdogRGB
 		}
 		return 0
 	}

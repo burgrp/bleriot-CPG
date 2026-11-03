@@ -15,7 +15,8 @@ func TestStatusLEDPalette(t *testing.T) {
 		want  int32
 	}{
 		{name: "online idle", value: statusLEDOnlineRGB, want: 0xA05000},
-		{name: "offline", value: statusLEDOfflineRGB, want: 0x0020FF},
+		{name: "offline", value: statusLEDOfflineRGB, want: 0xFF3000},
+		{name: "watchdog", value: statusLEDWatchdogRGB, want: 0x0000FF},
 		{name: "pump", value: statusLEDPumpRGB, want: 0x00FF10},
 		{name: "valve CW", value: statusLEDValveCWRGB, want: 0xFF000A},
 		{name: "valve CCW", value: statusLEDValveCCWRGB, want: 0x0020FF},
@@ -240,7 +241,8 @@ func TestLinkStatusLEDPolicy(t *testing.T) {
 		{name: "online", online: true, operating: statusLEDValveCCWRGB, want: statusLEDValveCCWRGB},
 		{name: "offline pulse", pulse: true, operating: statusLEDPumpRGB, want: statusLEDOfflineRGB},
 		{name: "offline dark", operating: statusLEDPumpRGB, want: 0},
-		{name: "watchdog pulse", online: true, pulse: true, watchdogExpired: true, operating: statusLEDPumpRGB, want: statusLEDOfflineRGB},
+		{name: "offline overrides watchdog", pulse: true, watchdogExpired: true, operating: statusLEDPumpRGB, want: statusLEDOfflineRGB},
+		{name: "watchdog pulse", online: true, pulse: true, watchdogExpired: true, operating: statusLEDPumpRGB, want: statusLEDWatchdogRGB},
 		{name: "watchdog dark", online: true, watchdogExpired: true, operating: statusLEDPumpRGB, want: 0},
 	}
 

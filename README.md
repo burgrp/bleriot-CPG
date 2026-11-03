@@ -81,8 +81,9 @@ automatic:
 
 Valve state has priority over pump state. During valve dead time, the LED shows
 the pump indication when the pump is on and the idle indication otherwise.
-An expired watchdog blinks blue (`0x0020ff`): 200 ms on and 800 ms off. RF
-offline indication uses the same blue heartbeat.
+An expired watchdog blinks blue (`0x0000ff`): 200 ms on and 800 ms off. An RF
+offline link blinks orange (`0xff3000`) with the same timing and takes priority
+over the watchdog indication.
 
 When the watchdog expires, firmware switches the pump off and commands the
 valve to its configured safe end. Valve reversal still uses the configured
